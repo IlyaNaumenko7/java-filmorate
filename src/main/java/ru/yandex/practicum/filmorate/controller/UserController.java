@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
@@ -22,6 +23,9 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public User create(@Valid @RequestBody User user) {
+        if (user == null) {
+            throw new ValidationException("Тело запроса не может быть пустым");
+        }
         validateUserLogin(user);
         handleEmptyName(user);
         user.setId(nextId++);
@@ -32,16 +36,14 @@ public class UserController {
 
     @PutMapping
     public User update(@Valid @RequestBody User user) {
-        // 1. Проверяем существование пользователя
-        if (!users.containsKey(user.getId())) {
-            throw new RuntimeException("Пользователь с id " + user.getId() + " не найден");
+        if (user == null || user.getId() == null) {
+            throw new ValidationException("Тело запроса или id не могут быть пустыми");
         }
-
-        // 2. Валидация полей (только если пользователь найден)
+        if (!users.containsKey(user.getId())) {
+            throw new NotFoundException("Пользователь с id " + user.getId() + " не найден");
+        }
         validateUserLogin(user);
         handleEmptyName(user);
-
-        // 3. Обновление
         users.put(user.getId(), user);
         log.info("Пользователь обновлён: {}", user.getLogin());
         return user;

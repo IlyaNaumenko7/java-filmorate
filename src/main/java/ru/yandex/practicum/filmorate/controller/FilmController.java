@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.controller;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 
@@ -22,6 +23,9 @@ public class FilmController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Film create(@RequestBody Film film) {
+        if (film == null) {
+            throw new ValidationException("Тело запроса не может быть пустым");
+        }
         validateFilm(film);
         film.setId(nextId++);
         films.put(film.getId(), film);
@@ -31,17 +35,13 @@ public class FilmController {
 
     @PutMapping
     public Film update(@RequestBody Film film) {
-        // 1. Сначала проверяем, есть ли такой фильм в базе
-        if (!films.containsKey(film.getId())) {
-            // Если нет — кидаем RuntimeException.
-            // Spring Boot по умолчанию вернет за него 500 ошибку.
-            throw new RuntimeException("Фильм с id " + film.getId() + " не найден");
+        if (film == null || film.getId() == null) {
+            throw new ValidationException("Тело запроса или id не могут быть пустыми");
         }
-
-        // 2. Только если фильм найден, проводим валидацию данных
+        if (!films.containsKey(film.getId())) {
+            throw new NotFoundException("Фильм с id " + film.getId() + " не найден");
+        }
         validateFilm(film);
-
-        // 3. Обновляем данные
         films.put(film.getId(), film);
         log.info("Фильм обновлён: {}", film.getName());
         return film;
