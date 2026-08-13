@@ -5,20 +5,18 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.user.UserStorage;
+import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class FilmService {
-    private final FilmStorage filmStorage;
-    private final UserStorage userStorage;
+    private final FilmDbStorage filmStorage;
+    private final UserDbStorage userStorage;
 
     public Film create(Film film) {
         validateFilm(film);
@@ -26,11 +24,25 @@ public class FilmService {
     }
 
     public Film update(Film film) {
-        validateFilm(film);
-        if (filmStorage.findById(film.getId()).isEmpty()) {
-            throw new NotFoundException("Фильм с id " + film.getId() + " не найден");
+        Film existingFilm = findById(film.getId());
+
+        existingFilm.setName(film.getName());
+        existingFilm.setDescription(film.getDescription());
+        existingFilm.setReleaseDate(film.getReleaseDate());
+        existingFilm.setDuration(film.getDuration());
+
+        // ✅ Обновляем MPA и Жанры только если они явно переданы в запросе
+        if (film.getMpa() != null) {
+            existingFilm.setMpa(film.getMpa());
         }
-        return filmStorage.update(film);
+        if (film.getGenres() != null) {
+            existingFilm.setGenres(film.getGenres());
+        }
+
+        filmStorage.update(existingFilm);
+
+        // ✅ Перечитываем фильм, чтобы вернуть его с актуальным списком лайков
+        return findById(film.getId());
     }
 
     public Collection<Film> findAll() {
@@ -42,39 +54,28 @@ public class FilmService {
     }
 
     public void addLike(Integer filmId, Integer userId) {
-        Film film = findById(filmId);
-        userStorage.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
-        film.getLikes().add(userId);
-        filmStorage.update(film);
+        findById(filmId); // Проверит фильм и выбросит исключение, если его нет
+        // Явно проверяем пользователя и выбрасываем наше исключение, если его нет
+        userStorage.findById(userId).orElseThrow(() ->
+                new NotFoundException("Пользователь с id " + userId + " не найден")
+        );
+        filmStorage.addLike(filmId, userId);
     }
 
     public void removeLike(Integer filmId, Integer userId) {
-        // 1. Проверяем, что фильм существует
-        Film film = findById(filmId);
-
-        // 2. ✅ ДОБАВЛЕНО: Проверяем, что пользователь существует
+        findById(filmId);
         userStorage.findById(userId).orElseThrow(() ->
-                new NotFoundException("Пользователь с id " + userId + " не найден"));
-
-        // 3. Удаляем лайк и обновляем фильм
-        film.getLikes().remove(userId);
-        filmStorage.update(film);
+                new NotFoundException("Пользователь с id " + userId + " не найден")
+        );
+        filmStorage.removeLike(filmId, userId);
     }
 
     public List<Film> getPopular(Integer count) {
-        if (count == null || count <= 0) {
-            count = 10;
-        }
-        return filmStorage.findAll().stream()
-                .sorted(Comparator.comparingInt((Film f) -> f.getLikes().size()).reversed())
-                .limit(count)
-                .collect(Collectors.toList());
+        return filmStorage.getPopular(count);
     }
 
     private void validateFilm(Film film) {
-        if (film == null) {
-            throw new ValidationException("Тело запроса не может быть пустым");
-        }
+        if (film == null) throw new ValidationException("Тело запроса не может быть пустым");
         if (film.getName() == null || film.getName().isBlank()) {
             throw new ValidationException("Название фильма не может быть пустым");
         }

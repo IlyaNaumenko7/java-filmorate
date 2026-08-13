@@ -13,6 +13,10 @@ public class Film {
     private LocalDate releaseDate;
     private int duration;
 
-    // Множество ID пользователей, поставивших лайк
+    // Новые поля по ТЗ
+    private Mpa mpa;
+    private Set<Genre> genres = new HashSet<>();
+
+    // Для обратной совместимости со старыми тестами (можно убрать при полном переходе на БД)
     private Set<Integer> likes = new HashSet<>();
 }

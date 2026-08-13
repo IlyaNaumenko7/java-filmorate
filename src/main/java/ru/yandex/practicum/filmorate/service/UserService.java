@@ -5,15 +5,14 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.user.UserStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.util.Collection;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
-    private final UserStorage userStorage;
+    private final UserDbStorage userStorage;
 
     public User create(User user) {
         validateUser(user);
@@ -21,11 +20,17 @@ public class UserService {
     }
 
     public User update(User user) {
-        validateUser(user);
-        if (userStorage.findById(user.getId()).isEmpty()) {
-            throw new NotFoundException("Пользователь с id " + user.getId() + " не найден");
-        }
-        return userStorage.update(user);
+        User existingUser = findById(user.getId());
+
+        if (user.getEmail() != null) existingUser.setEmail(user.getEmail());
+        if (user.getLogin() != null) existingUser.setLogin(user.getLogin());
+        if (user.getName() != null) existingUser.setName(user.getName());
+        if (user.getBirthday() != null) existingUser.setBirthday(user.getBirthday());
+
+        userStorage.update(existingUser);
+
+        // ✅ Перечитываем пользователя из БД, чтобы вернуть его с актуальным списком друзей
+        return findById(user.getId());
     }
 
     public Collection<User> findAll() {
@@ -37,45 +42,30 @@ public class UserService {
     }
 
     public void addFriend(Integer userId, Integer friendId) {
-        User user = findById(userId);
-        User friend = findById(friendId);
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId); // Взаимная дружба
-        userStorage.update(user);
-        userStorage.update(friend);
-        System.out.println("Пользователь " + user.getLogin() + " добавил в друзья " + friend.getLogin());
+        findById(userId);
+        findById(friendId);
+        userStorage.addFriend(userId, friendId);
     }
 
     public void removeFriend(Integer userId, Integer friendId) {
-        User user = findById(userId);
-        User friend = findById(friendId);
-        user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId); // Взаимное удаление
-        userStorage.update(user);
-        userStorage.update(friend);
+        findById(userId);
+        findById(friendId);
+        userStorage.removeFriend(userId, friendId);
     }
 
     public Collection<User> getFriends(Integer userId) {
-        User user = findById(userId);
-        return user.getFriends().stream()
-                .map(this::findById)
-                .collect(Collectors.toList());
-   }
+        findById(userId);
+        return userStorage.getFriends(userId);
+    }
 
     public Collection<User> getCommonFriends(Integer userId, Integer otherId) {
-        User user = findById(userId);
-        User other = findById(otherId);
-
-        return user.getFriends().stream()
-                .filter(other.getFriends()::contains)
-                .map(this::findById)
-                .collect(Collectors.toList());
+        findById(userId);
+        findById(otherId);
+        return userStorage.getCommonFriends(userId, otherId);
     }
 
     private void validateUser(User user) {
-        if (user == null) {
-            throw new ValidationException("Тело запроса не может быть пустым");
-        }
+        if (user == null) throw new ValidationException("Тело запроса не может быть пустым");
         if (user.getLogin() == null || user.getLogin().isBlank() || user.getLogin().contains(" ")) {
             throw new ValidationException("Логин не может быть пустым и содержать пробелы");
         }

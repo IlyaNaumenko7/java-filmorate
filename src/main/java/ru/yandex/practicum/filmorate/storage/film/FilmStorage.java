@@ -11,6 +11,8 @@ public interface FilmStorage {
 
     Film update(Film film);
 
+    void delete(Integer id);
+
     Collection<Film> findAll();
 
     Optional<Film> findById(Integer id);
