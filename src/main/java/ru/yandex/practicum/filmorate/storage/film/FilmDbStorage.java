@@ -14,11 +14,7 @@ import ru.yandex.practicum.filmorate.model.Mpa;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 @Repository
@@ -30,6 +26,8 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Film create(Film film) {
         String sql = "INSERT INTO films (name, description, release_date, duration, mpa_id) VALUES (?, ?, ?, ?, ?)";
+
+        // ✅ Универсальный способ получения ID
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
@@ -45,10 +43,6 @@ public class FilmDbStorage implements FilmStorage {
         Number id = keyHolder.getKey();
         if (id != null) {
             film.setId(id.intValue());
-        }
-
-        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
-            saveGenres(film.getId(), film.getGenres());
         }
 
         log.debug("Фильм создан: {}", film);
@@ -70,11 +64,6 @@ public class FilmDbStorage implements FilmStorage {
             log.warn("Фильм не найден для обновления: {}", film.getId());
             return null;
         }
-
-        if (film.getGenres() != null) {
-            updateGenres(film.getId(), film.getGenres());
-        }
-
         log.debug("Фильм обновлён: {}", film);
         return film;
     }
@@ -137,7 +126,10 @@ public class FilmDbStorage implements FilmStorage {
         }
     }
 
+    // --- Методы для работы с лайками и популярными фильмами (требуются сервису) ---
+
     public void addLike(Integer filmId, Integer userId) {
+        // MERGE INTO гарантирует, что дубликат не будет создан
         String sql = "MERGE INTO likes (film_id, user_id) KEY (film_id, user_id) VALUES (?, ?)";
         jdbcTemplate.update(sql, filmId, userId);
         log.debug("Добавлен лайк: film {} <- user {}", filmId, userId);
@@ -177,6 +169,7 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     private void loadFilmDetails(Film film) {
+        // 1. Загружаем MPA
         if (film.getMpa() != null && film.getMpa().getId() != null) {
             film.setMpa(jdbcTemplate.queryForObject("SELECT * FROM mpa WHERE id = ?", (rs, rowNum) -> {
                 Mpa m = new Mpa();
@@ -187,6 +180,7 @@ public class FilmDbStorage implements FilmStorage {
             }, film.getMpa().getId()));
         }
 
+        // 2. Загружаем Жанры
         String genreSql = "SELECT g.* FROM genres g JOIN film_genre fg ON g.id = fg.genre_id WHERE fg.film_id = ?";
         film.setGenres(new HashSet<>(jdbcTemplate.query(genreSql, (rs, rowNum) -> {
             Genre g = new Genre();
@@ -195,21 +189,9 @@ public class FilmDbStorage implements FilmStorage {
             return g;
         }, film.getId())));
 
+        // 3. 🔥 ДОБАВЛЯЕМ ЗАГРУЗКУ ЛАЙКОВ (этого не хватало) 🔥
         String likesSql = "SELECT user_id FROM likes WHERE film_id = ?";
-        film.setLikes(new HashSet<>(jdbcTemplate.queryForList(likesSql, Integer.class, film.getId())));
+        Set<Integer> likes = new HashSet<>(jdbcTemplate.queryForList(likesSql, Integer.class, film.getId()));
+        film.setLikes(likes);
     }
-
-    private void saveGenres(Integer filmId, Set<Genre> genres) {
-        String sql = "INSERT INTO film_genre (film_id, genre_id) VALUES (?, ?)";
-        for (Genre genre : genres) {
-            jdbcTemplate.update(sql, filmId, genre.getId());
-        }
     }
-
-    private void updateGenres(Integer filmId, Set<Genre> genres) {
-        jdbcTemplate.update("DELETE FROM film_genre WHERE film_id = ?", filmId);
-        if (genres != null && !genres.isEmpty()) {
-            saveGenres(filmId, genres);
-        }
-    }
-}

@@ -4,7 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.model.User;
 
@@ -15,23 +14,16 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Transactional // Гарантирует откат всех изменений в БД после завершения каждого теста
+@Transactional// Гарантирует откат изменений в БД после каждого теста
 class UserDbStorageTest {
 
     @Autowired
     private UserDbStorage userDbStorage;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate; // Добавляем для очистки таблицы
-
     private User testUser;
 
     @BeforeEach
     void setUp() {
-        // Очищаем таблицу перед каждым тестом, чтобы убрать данные,
-        // которые могли остаться от других тестовых классов
-        jdbcTemplate.update("DELETE FROM users");
-
         testUser = new User();
         testUser.setEmail("test@test.com");
         testUser.setLogin("testLogin");
@@ -94,8 +86,6 @@ class UserDbStorageTest {
         userDbStorage.create(user2);
 
         Collection<User> allUsers = userDbStorage.findAll();
-
-        // Теперь размер будет ровно 2, так как мы очистили таблицу в @BeforeEach
         assertThat(allUsers).hasSize(2);
     }
 }
