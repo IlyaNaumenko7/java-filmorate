@@ -15,21 +15,20 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Transactional // Гарантирует откат всех изменений в БД после завершения каждого теста
+@Transactional
 class UserDbStorageTest {
 
     @Autowired
     private UserDbStorage userDbStorage;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate; // Добавляем для очистки таблицы
+    private JdbcTemplate jdbcTemplate;
 
     private User testUser;
 
     @BeforeEach
     void setUp() {
-        // Очищаем таблицу перед каждым тестом, чтобы убрать данные,
-        // которые могли остаться от других тестовых классов
+        // 🔥 ОЧИСТКА ТАБЛИЦЫ - чтобы тесты не влияли друг на друга
         jdbcTemplate.update("DELETE FROM users");
 
         testUser = new User();
@@ -42,7 +41,6 @@ class UserDbStorageTest {
     @Test
     void create_shouldSaveUserAndGenerateId() {
         User created = userDbStorage.create(testUser);
-
         assertThat(created.getId()).isNotNull();
         assertThat(created.getEmail()).isEqualTo(testUser.getEmail());
         assertThat(created.getLogin()).isEqualTo(testUser.getLogin());
@@ -51,9 +49,7 @@ class UserDbStorageTest {
     @Test
     void findById_shouldReturnUserWhenExists() {
         User created = userDbStorage.create(testUser);
-
         Optional<User> found = userDbStorage.findById(created.getId());
-
         assertThat(found).isPresent();
         assertThat(found.get().getId()).isEqualTo(created.getId());
     }
@@ -68,7 +64,6 @@ class UserDbStorageTest {
     void update_shouldUpdateUser() {
         User created = userDbStorage.create(testUser);
         created.setName("Updated Name");
-
         User updated = userDbStorage.update(created);
         assertThat(updated.getName()).isEqualTo("Updated Name");
     }
@@ -77,7 +72,6 @@ class UserDbStorageTest {
     void delete_shouldRemoveUser() {
         User created = userDbStorage.create(testUser);
         userDbStorage.delete(created.getId());
-
         Optional<User> found = userDbStorage.findById(created.getId());
         assertThat(found).isEmpty();
     }
@@ -94,8 +88,6 @@ class UserDbStorageTest {
         userDbStorage.create(user2);
 
         Collection<User> allUsers = userDbStorage.findAll();
-
-        // Теперь размер будет ровно 2, так как мы очистили таблицу в @BeforeEach
         assertThat(allUsers).hasSize(2);
     }
 }

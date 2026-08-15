@@ -42,17 +42,15 @@ class FriendAndLikeServiceTest {
 
     @Test
     void addFriend_shouldAddOneWayFriendship() {
-        // user1 добавляет user2 в друзья (односторонняя дружба)
         userService.addFriend(user1.getId(), user2.getId());
 
         Collection<User> friendsOf1 = userService.getFriends(user1.getId());
         Collection<User> friendsOf2 = userService.getFriends(user2.getId());
 
-        // У user1 в друзьях должен быть user2
         assertTrue(friendsOf1.stream().anyMatch(u -> u.getId().equals(user2.getId())),
                 "user2 должен быть в списке друзей у user1");
 
-        // У user2 в друзьях НЕ должно быть user1, так как он не добавлял его в ответ
+        // ⚠️ ОДНОСТОРОННЯЯ ДРУЖБА: user2 НЕ должен иметь user1 в друзьях
         assertFalse(friendsOf2.stream().anyMatch(u -> u.getId().equals(user1.getId())),
                 "user1 НЕ должен быть в списке друзей у user2 при односторонней заявке");
     }

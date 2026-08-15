@@ -21,14 +21,12 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class UserDbStorage implements UserStorage {
-
     private final JdbcTemplate jdbcTemplate;
 
     @Override
     public User create(User user) {
         String sql = "INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
-
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, user.getEmail());
@@ -37,12 +35,10 @@ public class UserDbStorage implements UserStorage {
             ps.setDate(4, user.getBirthday() != null ? Date.valueOf(user.getBirthday()) : null);
             return ps;
         }, keyHolder);
-
         Number id = keyHolder.getKey();
         if (id != null) {
             user.setId(id.intValue());
         }
-
         log.debug("Пользователь создан: {}", user);
         return user;
     }
@@ -56,7 +52,6 @@ public class UserDbStorage implements UserStorage {
                 user.getName(),
                 user.getBirthday() != null ? Date.valueOf(user.getBirthday()) : null,
                 user.getId());
-
         if (rowsUpdated == 0) {
             log.warn("Пользователь не найден для обновления: {}", user.getId());
             return null;
@@ -96,27 +91,25 @@ public class UserDbStorage implements UserStorage {
                 u.setBirthday(rs.getDate("birthday") != null ? rs.getDate("birthday").toLocalDate() : null);
                 return u;
             }, id);
-
             if (user != null) {
                 String friendsSql = "SELECT friend_id FROM friendship WHERE user_id = ?";
                 List<Integer> friendIds = jdbcTemplate.queryForList(friendsSql, Integer.class, id);
                 user.setFriends(new HashSet<>(friendIds));
             }
-
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
     }
 
+    // ⚠️ ОДНОСТОРОННЯЯ ДРУЖБА - только userId добавляет friendId
     public void addFriend(Integer userId, Integer friendId) {
-        // Строго односторонняя дружба: только userId добавляет friendId в свой список
         String sql = "MERGE INTO friendship (user_id, friend_id) KEY (user_id, friend_id) VALUES (?, ?)";
         jdbcTemplate.update(sql, userId, friendId);
     }
 
+    // ⚠️ ОДНОСТОРОННЕЕ УДАЛЕНИЕ
     public void removeFriend(Integer userId, Integer friendId) {
-        // Строго одностороннее удаление: только userId удаляет friendId из своего списка
         String sql = "DELETE FROM friendship WHERE user_id = ? AND friend_id = ?";
         jdbcTemplate.update(sql, userId, friendId);
     }

@@ -56,8 +56,7 @@ CREATE TABLE IF NOT EXISTS film_genre (
 CREATE TABLE IF NOT EXISTS friendship (
                                           user_id INTEGER NOT NULL,
                                           friend_id INTEGER NOT NULL,
-                                          status VARCHAR(50) NOT NULL DEFAULT 'unconfirmed',
-    PRIMARY KEY (user_id, friend_id),
+                                          PRIMARY KEY (user_id, friend_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE
     );
