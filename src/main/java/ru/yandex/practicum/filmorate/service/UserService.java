@@ -29,7 +29,7 @@ public class UserService {
 
         userStorage.update(existingUser);
 
-        // ✅ Перечитываем пользователя из БД, чтобы вернуть его с актуальным списком друзей
+        // Перезагружаем пользователя из БД, чтобы вернуть его с актуальным списком друзей
         return findById(user.getId());
     }
 
@@ -38,7 +38,8 @@ public class UserService {
     }
 
     public User findById(Integer id) {
-        return userStorage.findById(id).orElseThrow(() -> new NotFoundException("Пользователь с id " + id + " не найден"));
+        return userStorage.findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + id + " не найден"));
     }
 
     public void addFriend(Integer userId, Integer friendId) {
@@ -65,7 +66,9 @@ public class UserService {
     }
 
     private void validateUser(User user) {
-        if (user == null) throw new ValidationException("Тело запроса не может быть пустым");
+        if (user == null) {
+            throw new ValidationException("Тело запроса не может быть пустым");
+        }
         if (user.getLogin() == null || user.getLogin().isBlank() || user.getLogin().contains(" ")) {
             throw new ValidationException("Логин не может быть пустым и содержать пробелы");
         }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.model.User;
 
@@ -14,16 +15,27 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Transactional// Гарантирует откат изменений в БД после каждого теста
+@Transactional
 class UserDbStorageTest {
 
     @Autowired
     private UserDbStorage userDbStorage;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private User testUser;
 
     @BeforeEach
     void setUp() {
+        // Очищаем таблицу users перед каждым тестом,
+        // чтобы данные от UserControllerTest не влияли на результат
+        jdbcTemplate.update("DELETE FROM likes");
+        jdbcTemplate.update("DELETE FROM friendship");
+        jdbcTemplate.update("DELETE FROM film_genre");
+        jdbcTemplate.update("DELETE FROM films");
+        jdbcTemplate.update("DELETE FROM users");
+
         testUser = new User();
         testUser.setEmail("test@test.com");
         testUser.setLogin("testLogin");
@@ -34,7 +46,6 @@ class UserDbStorageTest {
     @Test
     void create_shouldSaveUserAndGenerateId() {
         User created = userDbStorage.create(testUser);
-
         assertThat(created.getId()).isNotNull();
         assertThat(created.getEmail()).isEqualTo(testUser.getEmail());
         assertThat(created.getLogin()).isEqualTo(testUser.getLogin());
@@ -43,9 +54,7 @@ class UserDbStorageTest {
     @Test
     void findById_shouldReturnUserWhenExists() {
         User created = userDbStorage.create(testUser);
-
         Optional<User> found = userDbStorage.findById(created.getId());
-
         assertThat(found).isPresent();
         assertThat(found.get().getId()).isEqualTo(created.getId());
     }
@@ -60,7 +69,6 @@ class UserDbStorageTest {
     void update_shouldUpdateUser() {
         User created = userDbStorage.create(testUser);
         created.setName("Updated Name");
-
         User updated = userDbStorage.update(created);
         assertThat(updated.getName()).isEqualTo("Updated Name");
     }
@@ -69,7 +77,6 @@ class UserDbStorageTest {
     void delete_shouldRemoveUser() {
         User created = userDbStorage.create(testUser);
         userDbStorage.delete(created.getId());
-
         Optional<User> found = userDbStorage.findById(created.getId());
         assertThat(found).isEmpty();
     }
@@ -86,6 +93,8 @@ class UserDbStorageTest {
         userDbStorage.create(user2);
 
         Collection<User> allUsers = userDbStorage.findAll();
+
+        // Теперь здесь гарантированно будет ровно 2 пользователя
         assertThat(allUsers).hasSize(2);
     }
 }
